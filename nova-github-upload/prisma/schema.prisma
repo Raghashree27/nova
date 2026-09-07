@@ -1,0 +1,109 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  password           String
+  name               String
+  role               String          @default("MEMBER") // ADMIN, MANAGER, MEMBER
+  avatarUrl          String?
+  department         String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  ownedProjects      Project[]       @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  assignedTasks      Task[]          @relation("TaskAssignee")
+  createdTasks       Task[]          @relation("TaskCreator")
+  comments           Comment[]
+  activities         ActivityLog[]
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  key         String          @unique // e.g. "NOVA", "WEB"
+  description String?
+  status      String          @default("IN_PROGRESS") // PLANNING, IN_PROGRESS, COMPLETED, ON_HOLD
+  priority    String          @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  startDate   DateTime?
+  dueDate     DateTime?
+  budget      Float?
+  progress    Int             @default(0)
+  ownerId     String
+  owner       User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  members     ProjectMember[]
+  tasks       Task[]
+  activities  ActivityLog[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("MEMBER") // OWNER, MANAGER, MEMBER
+  joinedAt  DateTime @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model Task {
+  id          String        @id @default(cuid())
+  taskCode    String        // e.g. "NOVA-1"
+  title       String
+  description String?
+  status      String        @default("TODO") // TODO, IN_PROGRESS, IN_REVIEW, DONE
+  priority    String        @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  dueDate     DateTime?
+  order       Int           @default(0)
+  projectId   String
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creatorId   String
+  creator     User          @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  comments    Comment[]
+  activities  ActivityLog[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String   // e.g. "CREATED_PROJECT", "UPDATED_STATUS", "COMMENTED", "ASSIGNED_TASK"
+  details   String
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
